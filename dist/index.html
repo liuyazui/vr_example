@@ -1,84 +1,344 @@
 <!DOCTYPE html>
 <html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<title>three.js examples</title>
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<link rel="shortcut icon" href="./files/favicon.ico" />
+		<link rel="stylesheet" type="text/css" href="./files/main.css">
+	</head>
+	<body>
 
-<head>
-  <meta charset="UTF-8">
-  <title>第一个three.js文件_WebGL三维场景</title>
-  <style>
-    body {
-      margin: 0;
-      overflow: hidden;
-      /* 隐藏body窗口区域滚动条 */
-    }
-  </style>
-  <!--引入three.js三维引擎-->
-  <script src="./three.js"></script>
-  <script src="./js/controls/OrbitControls.js"></script>
-  <!-- <script src="http://www.yanhuangxueyuan.com/threejs/build/three.js"></script> -->
-</head>
+		<div id="panel">
 
-<body>
-  <script>
-    /**
-     * 创建场景对象Scene
-     */
-    var scene = new THREE.Scene();
-    /**
-     * 创建网格模型
-     */
-    // var geometry = new THREE.SphereGeometry(60, 40, 40); //创建一个球体几何对象
-    var geometry = new THREE.BoxGeometry(100, 100, 100); //创建一个立方体几何对象Geometry
-    var material = new THREE.MeshLambertMaterial({
-      color: 0x0000ff
-    }); //材质对象Material
-    var mesh = new THREE.Mesh(geometry, material); //网格模型对象Mesh
-    scene.add(mesh); //网格模型添加到场景中
+			<div id="header">
+				<h1>VR/AR例子</h1>
 
-    /*添加坐标轴*/
-    var axisHelper = new THREE.AxisHelper(250);
-    scene.add(axisHelper);
-    /**
-     * 光源设置
-     */
-    //点光源
-    var point = new THREE.PointLight(0xffffff);
-    point.position.set(400, 200, 300); //点光源位置
-    scene.add(point); //点光源添加到场景中
-    //环境光
-    var ambient = new THREE.AmbientLight(0x444444);
-    scene.add(ambient);
+				<div id="sections">
+					<span class="selected">examples</span>
+				</div>
 
-    // 点光源2  位置和point关于原点对称
-    var point2 = new THREE.PointLight(0xffffff);
-    point2.position.set(-400, -200, -300); //点光源位置
-    scene.add(point2); //点光源添加到场景中
-    // console.log(scene)
-    // console.log(scene.children)
-    /**
-     * 相机设置
-     */
-    var width = window.innerWidth; //窗口宽度
-    var height = window.innerHeight; //窗口高度
-    var k = width / height; //窗口宽高比
-    var s = 200; //三维场景显示范围控制系数，系数越大，显示的范围越大
-    //创建相机对象
-    var camera = new THREE.OrthographicCamera(-s * k, s * k, s, -s, 1, 1000);
-    camera.position.set(200, 300, 200); //设置相机位置
-    camera.lookAt(scene.position); //设置相机方向(指向的场景对象)
-    /**
-     * 创建渲染器对象
-     */
-    var renderer = new THREE.WebGLRenderer();
-    renderer.setSize(width, height);//设置渲染区域尺寸
-    renderer.setClearColor(0xb9d3ff, 1); //设置背景颜色
-    document.body.appendChild(renderer.domElement); //body元素中插入canvas对象
-    //执行渲染操作   指定场景、相机作为参数
-    function render() {
-        renderer.render(scene,camera);//执行渲染操作
-    }
-    render();
-    var controls = new THREE.OrbitControls(camera,renderer.domElement);//创建控件对象
-    controls.addEventListener('change', render);//监听鼠标、键盘事件
-  </script>
-</body>
+				<div id="expandButton"></div>
+			</div>
+
+			<div id="panelScrim"></div>
+
+			<div id="contentWrapper">
+
+				<div id="inputWrapper">
+					<input placeholder="" type="text" id="filterInput" autocorrect="off" autocapitalize="off" spellcheck="false" />
+					<div id="exitSearchButton"></div>
+				</div>
+
+				<div id="content">
+					<img id="previewsToggler" src="./files/thumbnails.svg" width="20" height="20" />
+				</div>
+			</div>
+
+		</div>
+
+		<iframe id="viewer" name="viewer" allow="fullscreen; xr-spatial-tracking;"></iframe>
+
+
+		<script>
+
+		const panel = document.getElementById( 'panel' );
+		const content = document.getElementById( 'content' );
+		const viewer = document.getElementById( 'viewer' );
+		const filterInput = document.getElementById( 'filterInput' );
+		const exitSearchButton = document.getElementById( 'exitSearchButton' );
+		const expandButton = document.getElementById( 'expandButton' );
+		const panelScrim = document.getElementById( 'panelScrim' );
+
+		const previewsToggler = document.getElementById( 'previewsToggler' );
+
+		const links = {};
+		const validRedirects = new Map();
+		const container = document.createElement( 'div' );
+
+		let selected = null;
+
+		init();
+
+		async function init() {
+
+			content.appendChild( container );
+
+
+			const files = await ( await fetch( 'files.json' ) ).json();
+			const tags = await ( await fetch( 'tags.json' ) ).json();
+
+			for ( const key in files ) {
+
+				const section = files[ key ];
+
+				const header = document.createElement( 'h2' );
+				header.textContent = key;
+				header.setAttribute( 'data-category', key );
+				container.appendChild( header );
+
+				for ( let i = 0; i < section.length; i ++ ) {
+
+					const file = section[ i ];
+
+					const link = createLink( file );
+					container.appendChild( link );
+
+					links[ file ] = link;
+					validRedirects.set( file, file + '.html' );
+
+				}
+
+			}
+
+			if ( window.location.hash !== '' ) {
+
+				const file = window.location.hash.substring( 1 );
+
+				// use a predefined map of redirects to avoid untrusted URL redirection due to user-provided value
+
+				if ( validRedirects.has( file ) === true ) {
+
+					viewer.src = validRedirects.get( file );
+					viewer.style.display = 'unset';
+
+				}
+
+			}
+
+			filterInput.value = extractQuery();
+
+			if ( filterInput.value !== '' ) {
+
+				panel.classList.add( 'searchFocused' );
+
+				updateFilter( files, tags );
+
+			}
+
+			// Events
+
+			filterInput.onfocus = function ( ) {
+
+				panel.classList.add( 'searchFocused' );
+
+			};
+
+			filterInput.onblur = function ( ) {
+
+				if ( filterInput.value === '' ) {
+
+					panel.classList.remove( 'searchFocused' );
+
+				}
+
+			};
+
+			exitSearchButton.onclick = function ( ) {
+
+				filterInput.value = '';
+				updateFilter( files, tags );
+				panel.classList.remove( 'searchFocused' );
+
+			};
+
+			filterInput.addEventListener( 'input', function () {
+
+				updateFilter( files, tags );
+
+			} );
+
+
+			expandButton.addEventListener( 'click', function ( event ) {
+
+				event.preventDefault();
+				panel.classList.toggle( 'open' );
+
+			} );
+
+			panelScrim.onclick = function ( event ) {
+
+				event.preventDefault();
+				panel.classList.toggle( 'open' );
+
+			};
+
+			previewsToggler.onclick = function ( event ) {
+
+				event.preventDefault();
+				content.classList.toggle( 'minimal' );
+
+			};
+
+			// iOS iframe auto-resize workaround
+
+			if ( /(iPad|iPhone|iPod)/g.test( navigator.userAgent ) ) {
+
+				viewer.style.width = getComputedStyle( viewer ).width;
+				viewer.style.height = getComputedStyle( viewer ).height;
+				viewer.setAttribute( 'scrolling', 'no' );
+
+			}
+
+		}
+
+		function createLink( file ) {
+
+			const template = `
+				<div class="card">
+					<a href="${file}.html" target="viewer">
+						<div class="cover">
+							<img src="screenshots/${ file }.jpg" loading="lazy" width="400" />
+						</div>
+						<div class="title">${getName( file )}</div>
+					</a>
+				</div>
+			`;
+
+			const link = createElementFromHTML( template );
+
+			link.querySelector( 'a[target="viewer"]' ).addEventListener( 'click', function ( event ) {
+
+				if ( event.button !== 0 || event.ctrlKey || event.altKey || event.metaKey ) return;
+
+
+			} );
+
+			return link;
+
+		}
+
+
+		function updateFilter( files, tags ) {
+
+			let v = filterInput.value.trim();
+			v = v.replace( /\s+/gi, ' ' ); // replace multiple whitespaces with a single one
+
+			if ( v !== '' ) {
+
+				window.history.replaceState( {}, '', '?q=' + v + window.location.hash );
+
+			} else {
+
+				window.history.replaceState( {}, '', window.location.pathname + window.location.hash );
+
+			}
+
+			const exp = new RegExp( v, 'gi' );
+
+			for ( const key in files ) {
+
+				const section = files[ key ];
+
+				for ( let i = 0; i < section.length; i ++ ) {
+
+					filterExample( section[ i ], exp, tags );
+
+				}
+
+			}
+
+			layoutList( files );
+
+		}
+
+		function filterExample( file, exp, tags ) {
+
+			const link = links[ file ];
+			const name = getName( file );
+			if ( file in tags ) file += ' ' + tags[ file ].join( ' ' );
+			const res = file.match( exp );
+			let text;
+
+			if ( res && res.length > 0 ) {
+
+				link.classList.remove( 'hidden' );
+
+				for ( let i = 0; i < res.length; i ++ ) {
+
+					text = name.replace( res[ i ], '<b>' + res[ i ] + '</b>' );
+
+				}
+
+				link.querySelector( '.title' ).innerHTML = text;
+
+			} else {
+
+				link.classList.add( 'hidden' );
+				link.querySelector( '.title' ).innerHTML = name;
+
+			}
+
+		}
+
+		function getName( file ) {
+
+			const name = file.split( '_' );
+			name.shift();
+			return name.join( ' / ' );
+
+		}
+
+		function layoutList( files ) {
+
+			for ( const key in files ) {
+
+				let collapsed = true;
+
+				const section = files[ key ];
+
+				for ( let i = 0; i < section.length; i ++ ) {
+
+					const file = section[ i ];
+
+					if ( links[ file ].classList.contains( 'hidden' ) === false ) {
+
+						collapsed = false;
+						break;
+
+					}
+
+				}
+
+				const element = document.querySelector( 'h2[data-category="' + key + '"]' );
+
+				if ( collapsed ) {
+
+					element.classList.add( 'hidden' );
+
+				} else {
+
+					element.classList.remove( 'hidden' );
+
+				}
+
+			}
+
+		}
+
+		function extractQuery() {
+
+			const search = window.location.search;
+
+			if ( search.indexOf( '?q=' ) !== - 1 ) {
+
+				return decodeURI( search.substr( 3 ) );
+
+			}
+
+			return '';
+
+		}
+
+		function createElementFromHTML( htmlString ) {
+
+			const div = document.createElement( 'div' );
+			div.innerHTML = htmlString.trim();
+			return div.firstChild;
+
+		}
+
+		</script>
+
+	</body>
 </html>
