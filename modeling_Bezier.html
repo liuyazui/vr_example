@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>动态编辑样条</title>
+</head>
+
+<body>
+    <div id="container"></div>
+
+    <script type="module">
+
+        import * as THREE from './three/three.module.js';
+
+        import { GUI } from './jsm/libs/dat.gui.module.js';
+
+        import { OrbitControls } from './jsm/controls/OrbitControls.js';
+        import { TransformControls } from './jsm/controls/TransformControls.js';
+            
+        let container;
+        let camera, scene, renderer;
+        const splineHelperObjects = [];//样条控制顶点辅助
+        let splinePointsLength = 4;//控制顶点数目
+        const positions = [];//控制顶点位置
+        const point = new THREE.Vector3();
+
+        const raycaster = new THREE.Raycaster();
+        const pointer = new THREE.Vector2();
+        const onUpPosition = new THREE.Vector2();
+        const onDownPosition = new THREE.Vector2();
+
+        const geometry = new THREE.BoxGeometry(20, 20, 20);
+        let transformControl;
+
+        const ARC_SEGMENTS = 200;//计算步长
+
+        const splines = {};//存储样条，三种类型
+        const outlineGeometry =new THREE.BufferGeometry();
+
+        //GUI参数
+        const params = {
+            bezier: true
+        };
+
+        init();
+        animate();
+        function init() {
+            container = document.getElementById('container');
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xf0f0f0);
+
+            camera = new THREE.OrthographicCamera(window.innerWidth /-2,window.innerWidth /2, 
+             window.innerHeight/2, window.innerHeight/-2, 1, 10000);
+            camera.position.set(0, 250, 1000);//默认相机位置 Z轴很远
+            scene.add(camera);
+
+            //光源
+            scene.add(new THREE.AmbientLight(0xf0f0f0));//添加默认环境光
+
+            //地面网格
+            const planeGeometry = new THREE.PlaneGeometry(2000, 2000);//几何
+            planeGeometry.rotateX(Math.PI / 2);
+            const planeMaterial = new THREE.ShadowMaterial({ opacity: 0.2 });//阴影材质
+
+            const helper = new THREE.GridHelper(1000, 100);//添加地面网格
+            helper.position.y = - 199;
+            helper.rotateX(Math.PI / 2);
+            helper.material.opacity = 0.25;
+            helper.material.transparent = true;
+            scene.add(helper);
+
+            //渲染
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            container.appendChild(renderer.domElement);
+
+
+            //设置GUI参数
+            const gui = new GUI();
+
+            gui.add(params, 'bezier');
+            gui.open();
+
+            // 场景控制器
+            const controls = new OrbitControls(camera, renderer.domElement);
+            controls.damping = 0.2;
+            controls.addEventListener('change', render);
+            controls.enableRotate = false;
+
+            // 添加样条控制器
+            transformControl = new TransformControls(camera, renderer.domElement);
+            transformControl.showZ = false;
+            transformControl.addEventListener('change', render);
+            transformControl.addEventListener('dragging-changed', function (event) {
+
+                controls.enabled = !event.value;
+
+            });
+            scene.add(transformControl);
+
+            transformControl.addEventListener('objectChange', function () {
+
+                updateSplineOutline();
+
+            });
+
+            document.addEventListener('pointerdown', onPointerDown);
+            document.addEventListener('pointerup', onPointerUp);
+            document.addEventListener('pointermove', onPointerMove);
+
+            //添加曲线
+            for (let i = 0; i < splinePointsLength; i++) {
+
+                addSplineObject(positions[i]);
+
+            }
+
+            positions.length = 0;
+
+            for (let i = 0; i < splinePointsLength; i++) {
+
+                positions.push(splineHelperObjects[i].position);
+
+            }
+
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(ARC_SEGMENTS * 3), 3));
+            let curve = new THREE.CubicBezierCurve3(positions[0],positions[1],positions[2],positions[3]);
+            curve.curveType = 'bezier';
+            curve.mesh = new THREE.Line(geometry.clone(), new THREE.LineBasicMaterial({
+                color: 0xff0000,
+                opacity: 1.0,
+                linewidth: 2.0,
+                dashed: false
+            }));
+            splines.bezier = curve;
+
+            for (const k in splines) {
+                const spline = splines[k];
+                scene.add(spline.mesh);
+            }
+
+
+            load([new THREE.Vector3(189.76843686945404, 152.51481137238443, 0),
+            new THREE.Vector3(53.56300074753207, -101.49711742836848, 0),
+            new THREE.Vector3(- 291.40118730204415, 76.4306956436485, 0),
+            new THREE.Vector3(- 183.785318791128, -191.1365363371675, 0)]);
+
+            const outLine = new THREE.Line( outlineGeometry, new THREE.LineDashedMaterial({
+                color: 0x000000,
+                dashSize: 3,
+                gapSize: 1,
+                scale: 2
+            }) );
+            outLine.computeLineDistances();
+            scene.add( outLine );
+
+            window.addEventListener( 'resize', onWindowResize );
+        }
+        function addSplineObject(position) {//为样条添加控制顶点
+            const material = new THREE.MeshLambertMaterial({ color: Math.random() * 0xffffff });
+            const object = new THREE.Mesh(geometry, material);
+
+            if (position) {//如果指定控制顶点，则使用它
+
+                object.position.copy(position);
+
+            } else {//如果没有参数，随机增加一个控制顶点
+
+                object.position.x = Math.random() * 1000 - 500;
+                object.position.y = Math.random() * 600;
+                object.position.z = Math.random() * 800 - 400;
+
+            }
+
+            object.castShadow = true;
+            object.receiveShadow = true;
+            scene.add(object);
+            splineHelperObjects.push(object);
+            return object;
+        }
+
+        function updateSplineOutline() {//更新样条
+            for (const k in splines) {
+
+                const spline = splines[k];
+
+                const splineMesh = spline.mesh;
+                const position = splineMesh.geometry.attributes.position;
+
+                for (let i = 0; i < ARC_SEGMENTS; i++) {
+
+                    const t = i / (ARC_SEGMENTS - 1);
+                    spline.getPoint(t, point);
+                    position.setXYZ(i, point.x, point.y, point.z);
+
+                }
+
+                position.needsUpdate = true;
+
+            }
+            outlineGeometry.setFromPoints(positions);
+        }
+
+        function load(new_positions) {
+  
+            for (let i = 0; i < positions.length; i++) {
+
+                positions[i].copy(new_positions[i]);
+
+            }
+
+            updateSplineOutline();
+        }
+
+        function animate() {
+
+            requestAnimationFrame(animate);
+            render();
+
+        }
+
+        function render() {
+
+            splines.bezier.mesh.visible = params.bezier;
+            renderer.render(scene, camera);
+
+        }
+
+        function onPointerDown(event) {
+
+            onDownPosition.x = event.clientX;
+            onDownPosition.y = event.clientY;
+        }
+
+        function onPointerUp() {
+
+            onUpPosition.x = event.clientX;
+            onUpPosition.y = event.clientY;
+
+            //如果没有移动点，则删除变形控件
+            if (onDownPosition.distanceTo(onUpPosition) === 0) transformControl.detach();
+
+        }
+
+        //鼠标移动，修改样条形状 响应函数
+        function onPointerMove(event) {
+
+            //屏幕选择的点转换为二维坐标系下的点
+            pointer.x = (event.clientX / window.innerWidth) * 2 - 1;
+            pointer.y = - (event.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(pointer, camera);
+
+            const intersects = raycaster.intersectObjects(splineHelperObjects);
+
+            //如果在移动过程中与原来的控制顶点相交，则采用第一个交点进行后续变换
+            if (intersects.length > 0) {
+
+                const object = intersects[0].object;
+
+                if (object !== transformControl.object) {
+
+                    transformControl.attach(object);
+
+                } 
+            }
+
+        }
+        function onWindowResize() {
+            camera.updateProjectionMatrix();
+            renderer.setSize( window.innerWidth, window.innerHeight );
+        }
+    </script>
+</body>
+
+</html>
