@@ -6,11 +6,6 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>动态编辑样条</title>
-    
-    <script src="verb/verb.js"></script>
-    <script src="three/three.min.js"></script>
-    <script src="verb/verbToThreeConversion.js"></script>
-
     <script src="nurbs/nurbs.js"></script>
 </head>
 
@@ -19,20 +14,22 @@
 
     <script type="module">
 
-import * as THREE from './three/three.module.js';
+        import * as THREE from './three/three.module.js';
 
-import { GUI } from './jsm/libs/dat.gui.module.js';
+        import { GUI } from './jsm/libs/dat.gui.module.js';
 
-import { OrbitControls } from './jsm/controls/OrbitControls.js';
-import { TransformControls } from './jsm/controls/TransformControls.js';
-
+        import { OrbitControls } from './jsm/controls/OrbitControls.js';
+        import { TransformControls } from './jsm/controls/TransformControls.js';
+        
+        
         let container;
         let camera, scene, renderer;
         const splineHelperObjects = [];//样条控制顶点辅助
-        let splinePointsLength = 6;//控制顶点数目
+        let splinePointsLength = 4;//控制顶点数目
         const positions = [];//控制顶点位置
         const point = new THREE.Vector3();
 
+        //鼠标交互
         const raycaster = new THREE.Raycaster();
         const pointer = new THREE.Vector2();
         const onUpPosition = new THREE.Vector2();
@@ -43,17 +40,16 @@ import { TransformControls } from './jsm/controls/TransformControls.js';
 
         const ARC_SEGMENTS = 200;//计算步长
 
-        const splines = {};//存储样条，三种类型
+        const splines = {};//存储样条，三种类型 open clamp closed
 
         //GUI参数
         const params = {
-            nurbs: true,//BOOL值
+            open: true,
+            clamp: true,
+            closed: true,
+            addPoint: addPoint,//函数
+            removePoint: removePoint
         };
-
-        //nurbs
-        const nurbsControlPoints = [];
-				const nurbsKnots = [];
-				const nurbsDegree = 3;
 
         init();
         animate();
@@ -102,11 +98,14 @@ import { TransformControls } from './jsm/controls/TransformControls.js';
             renderer.shadowMap.enabled = true;
             container.appendChild(renderer.domElement);
 
-
             //设置GUI参数
             const gui = new GUI();
 
-            gui.add(params, 'nurbs');
+            gui.add(params, 'open');
+            gui.add(params, 'clamp');
+            gui.add(params, 'closed');
+            gui.add(params, 'addPoint');
+            gui.add(params, 'removePoint');
             gui.open();
 
             // 场景控制器
@@ -130,90 +129,67 @@ import { TransformControls } from './jsm/controls/TransformControls.js';
 
             });
 
+            //交互事件
             document.addEventListener('pointerdown', onPointerDown);
             document.addEventListener('pointerup', onPointerUp);
             document.addEventListener('pointermove', onPointerMove);
 
-            
-            load([new THREE.Vector3(289.76843686945404, 452.51481137238443, 56.10018915737797),
-            new THREE.Vector3(- 53.56300074753207, 171.49711742836848, - 14.495472686253045),
-            new THREE.Vector3(- 91.40118730204415, 176.4306956436485, - 6.958271935582161),
-            new THREE.Vector3(- 383.785318791128, 491.1365363371675, 47.869296953772746)]);
+            //添加样条控制器
+            for (let i = 0; i < splinePointsLength; i++) {
 
-            //添加曲线
-            // for (let i = 0; i < splinePointsLength; i++) {
+                addSplineObject(positions[i]);
 
-            //     addSplineObject(positions[i]);
+            }
+            positions.length = 0;
 
-            // }
+            for (let i = 0; i < splinePointsLength; i++) {
 
-            // positions.length = 0;
+                positions.push(splineHelperObjects[i].position);//样条控制器定点作为样条控制顶点
 
-            // for (let i = 0; i < splinePointsLength; i++) {
+            }
+            console.log(positions);
 
-            //     positions.push(splineHelperObjects[i].position);
-
-            // }
-
+            //添加NURBS曲线
             const geometry = new THREE.BufferGeometry();
             geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(ARC_SEGMENTS * 3), 3));
 
-            var p1 = [-10,0,0], p2 = [10,0,0], p3 = [10,10,0], p4 = [0,10,0], p5 = [5, 5, 0];
-	        var pts = [p1, p2, p3, p4, p5];
-            var pts2 = [];
-            for (var value of positions) {
-                //console.log(value.x);
-                var tmp = [value.x, value.y, value.z];
-                pts2.push(tmp);
-            }
-
-            var interpCurve = verb.geom.NurbsCurve.byPoints( pts2, 3 );
-            //var geomNURBS = interpCurve.toThreeGeometry();
-            //console.log(geomNURBS);
-
-            var nurbscurve = nurbs({
-                points: [[-10, 0,0], [-5, 5,0], [5, -5,0], [10, 0,0]],
+            let curve = nurbs({
+                points: asPurePosition(positions),
                 degree: 3,
-                boundary: 'clamped'
                 });
-            // scene.add( new THREE.Line( geomNURBS.clone(), new THREE.LineBasicMaterial({
-            //     color: 0xff0000,
-            //     opacity: 0.35
-            // }) ) );
-
-           
-            const nurbsgeometry = new THREE.BufferGeometry();
-            nurbsgeometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(ARC_SEGMENTS * 3), 3));
-            const position = nurbsgeometry.attributes.position;
-            var nurbspoints = [];
-            
-            for(let i=0;i<10;i++){
-                const t = i/(10 - 1) * (nurbscurve.domain[0][1]-nurbscurve.domain[0][0]) + nurbscurve.domain[0][0];
-
-                var s = [];
-                nurbscurve.evaluate(s,t);
-                
-                nurbspoints.push(new THREE.Vector3(s[0],s[1],s[2]));
-                position.setXYZ(i, nurbscurve.evaluate([],t).x, nurbscurve.evaluate([],t).y, nurbscurve.evaluate([],t).z);
-            }
-            console.log(nurbspoints);
-            const nurbsObject = new THREE.Line( nurbsgeometry, new THREE.LineBasicMaterial({
-                color: 0xff0000,
-                opacity: 0.35
-            }) );
-            //scene.add(nurbsObject);
-
-
-            let curve = new THREE.CatmullRomCurve3(positions);
-            curve.curveType = 'catmullrom';
+            curve.curveType = 'open';
             curve.mesh = new THREE.Line(geometry.clone(), new THREE.LineBasicMaterial({
                 color: 0xff0000,
                 opacity: 0.35
             }));
             curve.mesh.castShadow = true;
-   //         splines.nurbs = curve;
+            splines.open = curve;
 
+            curve = nurbs({
+                points: asPurePosition(positions),
+                degree: 3,
+	            boundary: 'clamped'
+                });
+            curve.curveType = 'clamp';
+            curve.mesh = new THREE.Line(geometry.clone(), new THREE.LineBasicMaterial({
+                color: 0x00ff00,
+                opacity: 0.35
+            }));
+            curve.mesh.castShadow = true;
+            splines.clamp = curve;
 
+            curve = nurbs({
+                points: asPurePosition(positions),
+                degree: 3,
+	            boundary: 'closed'
+                });
+            curve.curveType = 'closed';
+            curve.mesh = new THREE.Line(geometry.clone(), new THREE.LineBasicMaterial({
+                color: 0x0000ff,
+                opacity: 0.35
+            }));
+            curve.mesh.castShadow = true;
+            splines.closed = curve;
 
             for (const k in splines) {
 
@@ -221,28 +197,16 @@ import { TransformControls } from './jsm/controls/TransformControls.js';
                 scene.add(spline.mesh);
 
             }
-            updateSplineOutline();
 
-
-            const curve22 = new THREE.CatmullRomCurve3([
-                new THREE.Vector3(-10, 0, 10),
-                new THREE.Vector3(-5, 5, 5),
-                new THREE.Vector3(0, 0, 0),
-                new THREE.Vector3(5, -5, 5),
-                new THREE.Vector3(10, 0, 10)
-            ]);
-
-            const points22 = curve22.getPoints(50);
-            const geometry22 = new THREE.BufferGeometry().setFromPoints(nurbspoints);
-
-            const material22 = new THREE.LineBasicMaterial({ color: 0xff0000 });
-
-            // Create the final object to add to the scene
-            const curveObject = new THREE.Line(geometry22, material22);
-                scene.add(curveObject);
+            load([new THREE.Vector3(189.76843686945404, 152.51481137238443, 0),
+            new THREE.Vector3(53.56300074753207, -101.49711742836848, 0),
+            new THREE.Vector3(- 291.40118730204415, 76.4306956436485, 0),
+            new THREE.Vector3(- 183.785318791128, -191.1365363371675, 0)]);
+            
+            window.addEventListener( 'resize', onWindowResize );
 
         }
-        function addSplineObject(position) {//为样条添加控制顶点
+        function addSplineObject(position) {//为样条添加控制顶点, 初始化样条编辑
             const material = new THREE.MeshLambertMaterial({ color: Math.random() * 0xffffff });
             const object = new THREE.Mesh(geometry, material);
 
@@ -261,7 +225,17 @@ import { TransformControls } from './jsm/controls/TransformControls.js';
             object.castShadow = true;
             object.receiveShadow = true;
             scene.add(object);
-            splineHelperObjects.push(object);
+            splineHelperObjects.push(object);//初始化样条编辑器
+            return object;
+        }
+
+        function asPurePosition(p)
+        {
+            const object = [];
+            for (var v of p){
+                object.push([v.x,v.y,v.z]);
+            }
+
             return object;
         }
 
@@ -292,23 +266,21 @@ import { TransformControls } from './jsm/controls/TransformControls.js';
 
         function updateSplineOutline() {//更新样条
             for (const k in splines) {
-
                 const spline = splines[k];
+                spline.points = asPurePosition(positions);
 
                 const splineMesh = spline.mesh;
                 const position = splineMesh.geometry.attributes.position;
-
                 for (let i = 0; i < ARC_SEGMENTS; i++) {
-
-                    const t = i / (ARC_SEGMENTS - 1);
-                    spline.getPoint(t, point);
-                    position.setXYZ(i, point.x, point.y, point.z);
-
+                    const t = i / (ARC_SEGMENTS - 1) * (spline.domain[0][1]-spline.domain[0][0]) + spline.domain[0][0];
+                    //console.log(t);  
+                    var s = [];
+	                spline.evaluate(s,t); 
+                    position.setXYZ(i, s[0], s[1], s[2]); 
                 }
-
                 position.needsUpdate = true;
-
             }
+
         }
 
         function exportSpline() {
@@ -316,6 +288,7 @@ import { TransformControls } from './jsm/controls/TransformControls.js';
         }
 
         function load(new_positions) {
+            
             while (new_positions.length > positions.length) {
 
                 addPoint();
@@ -333,7 +306,6 @@ import { TransformControls } from './jsm/controls/TransformControls.js';
                 positions[i].copy(new_positions[i]);
 
             }
-
             updateSplineOutline();
         }
 
@@ -346,9 +318,10 @@ import { TransformControls } from './jsm/controls/TransformControls.js';
 
         function render() {
 
-            //bool类型控制3个样条的显示隐藏
- //           splines.nurbs.mesh.visible = params.nurbs;
-
+            
+            splines.open.mesh.visible = params.open;
+            splines.clamp.mesh.visible = params.clamp;
+            splines.closed.mesh.visible = params.closed;
             renderer.render(scene, camera);
 
         }
@@ -394,6 +367,15 @@ import { TransformControls } from './jsm/controls/TransformControls.js';
             }
 
         }
+        
+        function onWindowResize() {
+
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+
+                renderer.setSize(window.innerWidth, window.innerHeight);
+
+            }
     </script>
 </body>
 
