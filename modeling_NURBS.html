@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>动态编辑样条</title>
+    <script src="nurbs/nurbs.js"></script>
+</head>
+
+<body>
+    <div id="container"></div>
+
+    <script type="module">
+
+        import * as THREE from './three/three.module.js';
+
+        import { GUI } from './jsm/libs/dat.gui.module.js';
+
+        import { OrbitControls } from './jsm/controls/OrbitControls.js';
+        import { TransformControls } from './jsm/controls/TransformControls.js';
+        
+        
+        let container;
+        let camera, scene, renderer;
+        const splineHelperObjects = [];//样条控制顶点辅助
+        let splinePointsLength = 4;//控制顶点数目
+        const positions = [];//控制顶点位置
+        const point = new THREE.Vector3();
+
+        //鼠标交互
+        const raycaster = new THREE.Raycaster();
+        const pointer = new THREE.Vector2();
+        const onUpPosition = new THREE.Vector2();
+        const onDownPosition = new THREE.Vector2();
+
+        const geometry = new THREE.BoxGeometry(20, 20, 20);
+        let transformControl;
+
+        const ARC_SEGMENTS = 200;//计算步长
+
+        const splines = {};//存储样条，三种类型 open clamp closed
+
+        //GUI参数
+        const params = {
+            open: true,
+            clamp: true,
+            closed: true,
+            addPoint: addPoint,//函数
+            removePoint: removePoint
+        };
+
+        init();
+        animate();
+        function init() {
+            container = document.getElementById('container');
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xf0f0f0);
+
+            camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 1, 10000);
+            camera.position.set(0, 250, 1000);//默认相机位置 Z轴很远
+            scene.add(camera);
+
+            //光源
+            scene.add(new THREE.AmbientLight(0xf0f0f0));//添加默认环境光
+            const light = new THREE.SpotLight(0xffffff, 1.5);//添加一个白色聚光灯
+            light.position.set(0, 1500, 200);
+            light.angle = Math.PI * 0.2;
+            light.castShadow = true;
+            light.shadow.camera.near = 200;
+            light.shadow.camera.far = 2000;
+            light.shadow.bias = - 0.000222;
+            light.shadow.mapSize.width = 1024;
+            light.shadow.mapSize.height = 1024;
+            scene.add(light);
+
+            //地面网格
+            const planeGeometry = new THREE.PlaneGeometry(2000, 2000);//几何
+            planeGeometry.rotateX(- Math.PI / 2);//旋转
+            const planeMaterial = new THREE.ShadowMaterial({ opacity: 0.2 });//阴影材质
+
+            const plane = new THREE.Mesh(planeGeometry, planeMaterial);//网格
+            plane.position.y = - 200;//垂直方向向下移动
+            plane.receiveShadow = true;//接收阴影
+            scene.add(plane);
+
+            const helper = new THREE.GridHelper(2000, 100);//添加地面网格
+            helper.position.y = - 199;
+            helper.material.opacity = 0.25;
+            helper.material.transparent = true;
+            scene.add(helper);
+
+            //渲染
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            container.appendChild(renderer.domElement);
+
+            //设置GUI参数
+            const gui = new GUI();
+
+            gui.add(params, 'open');
+            gui.add(params, 'clamp');
+            gui.add(params, 'closed');
+            gui.add(params, 'addPoint');
+            gui.add(params, 'removePoint');
+            gui.open();
+
+            // 场景控制器
+            const controls = new OrbitControls(camera, renderer.domElement);
+            controls.damping = 0.2;
+            controls.addEventListener('change', render);
+
+            // 添加样条控制器
+            transformControl = new TransformControls(camera, renderer.domElement);
+            transformControl.addEventListener('change', render);
+            transformControl.addEventListener('dragging-changed', function (event) {
+
+                controls.enabled = !event.value;
+
+            });
+            scene.add(transformControl);
+
+            transformControl.addEventListener('objectChange', function () {
+
+                updateSplineOutline();
+
+            });
+
+            //交互事件
+            document.addEventListener('pointerdown', onPointerDown);
+            document.addEventListener('pointerup', onPointerUp);
+            document.addEventListener('pointermove', onPointerMove);
+
+            //添加样条控制器
+            for (let i = 0; i < splinePointsLength; i++) {
+
+                addSplineObject(positions[i]);
+
+            }
+            positions.length = 0;
+
+            for (let i = 0; i < splinePointsLength; i++) {
+
+                positions.push(splineHelperObjects[i].position);//样条控制器定点作为样条控制顶点
+
+            }
+            console.log(positions);
+
+            //添加NURBS曲线
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(ARC_SEGMENTS * 3), 3));
+
+            let curve = nurbs({
+                points: asPurePosition(positions),
+                degree: 3,
+                });
+            curve.curveType = 'open';
+            curve.mesh = new THREE.Line(geometry.clone(), new THREE.LineBasicMaterial({
+                color: 0xff0000,
+                opacity: 0.35
+            }));
+            curve.mesh.castShadow = true;
+            splines.open = curve;
+
+            curve = nurbs({
+                points: asPurePosition(positions),
+                degree: 3,
+	            boundary: 'clamped'
+                });
+            curve.curveType = 'clamp';
+            curve.mesh = new THREE.Line(geometry.clone(), new THREE.LineBasicMaterial({
+                color: 0x00ff00,
+                opacity: 0.35
+            }));
+            curve.mesh.castShadow = true;
+            splines.clamp = curve;
+
+            curve = nurbs({
+                points: asPurePosition(positions),
+                degree: 3,
+	            boundary: 'closed'
+                });
+            curve.curveType = 'closed';
+            curve.mesh = new THREE.Line(geometry.clone(), new THREE.LineBasicMaterial({
+                color: 0x0000ff,
+                opacity: 0.35
+            }));
+            curve.mesh.castShadow = true;
+            splines.closed = curve;
+
+            for (const k in splines) {
+
+                const spline = splines[k];
+                scene.add(spline.mesh);
+
+            }
+
+            load([new THREE.Vector3(189.76843686945404, 152.51481137238443, 0),
+            new THREE.Vector3(53.56300074753207, -101.49711742836848, 0),
+            new THREE.Vector3(- 291.40118730204415, 76.4306956436485, 0),
+            new THREE.Vector3(- 183.785318791128, -191.1365363371675, 0)]);
+            
+            window.addEventListener( 'resize', onWindowResize );
+
+        }
+        function addSplineObject(position) {//为样条添加控制顶点, 初始化样条编辑
+            const material = new THREE.MeshLambertMaterial({ color: Math.random() * 0xffffff });
+            const object = new THREE.Mesh(geometry, material);
+
+            if (position) {//如果指定控制顶点，则使用它
+
+                object.position.copy(position);
+
+            } else {//如果没有参数，随机增加一个控制顶点
+
+                object.position.x = Math.random() * 1000 - 500;
+                object.position.y = Math.random() * 600;
+                object.position.z = Math.random() * 800 - 400;
+
+            }
+
+            object.castShadow = true;
+            object.receiveShadow = true;
+            scene.add(object);
+            splineHelperObjects.push(object);//初始化样条编辑器
+            return object;
+        }
+
+        function asPurePosition(p)
+        {
+            const object = [];
+            for (var v of p){
+                object.push([v.x,v.y,v.z]);
+            }
+
+            return object;
+        }
+
+        function addPoint() {
+            splinePointsLength++;//控制顶点数目增加
+
+            positions.push(addSplineObject().position);//增加一个点
+
+            updateSplineOutline();
+        }
+
+        function removePoint() {
+            if (splinePointsLength <= 4) {
+
+                return;
+
+            }
+
+            const point = splineHelperObjects.pop();
+            splinePointsLength--;
+            positions.pop();
+
+            if (transformControl.object === point) transformControl.detach();//移除当前顶点操作器
+            scene.remove(point);
+
+            updateSplineOutline();
+        }
+
+        function updateSplineOutline() {//更新样条
+            for (const k in splines) {
+                const spline = splines[k];
+                spline.points = asPurePosition(positions);
+
+                const splineMesh = spline.mesh;
+                const position = splineMesh.geometry.attributes.position;
+                for (let i = 0; i < ARC_SEGMENTS; i++) {
+                    const t = i / (ARC_SEGMENTS - 1) * (spline.domain[0][1]-spline.domain[0][0]) + spline.domain[0][0];
+                    //console.log(t);  
+                    var s = [];
+	                spline.evaluate(s,t); 
+                    position.setXYZ(i, s[0], s[1], s[2]); 
+                }
+                position.needsUpdate = true;
+            }
+
+        }
+
+        function exportSpline() {
+
+        }
+
+        function load(new_positions) {
+            
+            while (new_positions.length > positions.length) {
+
+                addPoint();
+
+            }
+
+            while (new_positions.length < positions.length) {
+
+                removePoint();
+
+            }
+
+            for (let i = 0; i < positions.length; i++) {
+
+                positions[i].copy(new_positions[i]);
+
+            }
+            updateSplineOutline();
+        }
+
+        function animate() {
+
+            requestAnimationFrame(animate);
+            render();
+
+        }
+
+        function render() {
+
+            
+            splines.open.mesh.visible = params.open;
+            splines.clamp.mesh.visible = params.clamp;
+            splines.closed.mesh.visible = params.closed;
+            renderer.render(scene, camera);
+
+        }
+
+        function onPointerDown(event) {
+
+            onDownPosition.x = event.clientX;
+            onDownPosition.y = event.clientY;
+
+        }
+
+        function onPointerUp() {
+
+            onUpPosition.x = event.clientX;
+            onUpPosition.y = event.clientY;
+
+            //如果没有移动点，则删除变形控件
+            if (onDownPosition.distanceTo(onUpPosition) === 0) transformControl.detach();
+
+        }
+
+        //鼠标移动，修改样条形状 响应函数
+        function onPointerMove(event) {
+
+            //屏幕选择的点转换为二维坐标系下的点
+            pointer.x = (event.clientX / window.innerWidth) * 2 - 1;
+            pointer.y = - (event.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(pointer, camera);
+
+            const intersects = raycaster.intersectObjects(splineHelperObjects);
+
+            //如果在移动过程中与原来的控制顶点相交，则采用第一个交点进行后续变换
+            if (intersects.length > 0) {
+
+                const object = intersects[0].object;
+
+                if (object !== transformControl.object) {
+
+                    transformControl.attach(object);
+
+                } 
+            }
+
+        }
+        
+        function onWindowResize() {
+
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+
+                renderer.setSize(window.innerWidth, window.innerHeight);
+
+            }
+    </script>
+</body>
+
+</html>
