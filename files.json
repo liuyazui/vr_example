@@ -4,6 +4,7 @@
 		"101_Geometry_Cube",
 		"103_Geometry_ColorVertex_Shadow",
 		"modeling_Bezier",
-		"modeling_NURBS"
+		"modeling_NURBS",
+		"transform_Translate"
 	]
 }
