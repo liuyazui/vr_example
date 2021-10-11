@@ -126,12 +126,10 @@
                 content.appendChild(element);
 
                 const camera = new THREE.PerspectiveCamera(45, 1, 1, 1000);
-                camera.position.set(10,10,20);
+                camera.position.set(5,5,10);
                 scene.userData.camera = camera;
 
                 const orbit = new OrbitControls(scene.userData.camera, scene.userData.element);
-                orbit.minDistance = 2;
-                orbit.maxDistance = 5;
                 //orbit.enablePan = false;
                 orbit.damping = 0.2;
                 orbit.update();
@@ -153,7 +151,7 @@
                 scene.userData.trans = control;
 
                 // add one random mesh to each scene
-                const geometry = new THREE.BoxGeometry(1, 1, 1);
+                const geometry = new THREE.BoxGeometry(1,1,1);
 
                 const material = new THREE.MeshStandardMaterial({
 
