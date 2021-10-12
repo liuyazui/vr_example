@@ -3,8 +3,10 @@
 	"example": [
 		"101_Geometry_Cube",
 		"103_Geometry_ColorVertex_Shadow",
-		"modeling_Bezier",
-		"modeling_NURBS",
-		"transform_Translate"
+		"Modeling_Bezier",
+		"Modeling_NURBS",
+		"Transform_Translate",
+		"Transform_Rotate",
+		"Transform_Scale"
 	]
 }
