@@ -2,7 +2,7 @@
 <html lang="en">
 
 <head>
-    <title>three.js webgl - multiple elements</title>
+    <title>旋转变换</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
     <link type="text/css" rel="stylesheet" href="main.css">
@@ -126,12 +126,10 @@
                 content.appendChild(element);
 
                 const camera = new THREE.PerspectiveCamera(45, 1, 1, 1000);
-                camera.position.set(10,10,20);
+                camera.position.set(5,5,10);
                 scene.userData.camera = camera;
 
                 const orbit = new OrbitControls(scene.userData.camera, scene.userData.element);
-                orbit.minDistance = 2;
-                orbit.maxDistance = 5;
                 //orbit.enablePan = false;
                 orbit.damping = 0.2;
                 orbit.update();
@@ -139,7 +137,7 @@
 
                 const control = new TransformControls(scene.userData.camera, scene.userData.element);
                 //control.addEventListener( 'change', render );
-                control.setMode('translate');
+                control.setMode('rotate');
                 control.addEventListener('dragging-changed', function (event) {
 
                     scene.userData.controls.enabled = !event.value;
@@ -153,13 +151,13 @@
                 scene.userData.trans = control;
 
                 // add one random mesh to each scene
-                const geometry = new THREE.BoxGeometry(1, 1, 1);
+                const geometry = new THREE.BoxGeometry(1,1,1);
 
                 const material = new THREE.MeshStandardMaterial({
 
                     color: new THREE.Color().setRGB(0.5, 0.2, 0.2),
                     roughness: 0.5,
-                    metalness: 0,
+                    metalness: 0.4,
                     flatShading: true
 
                 });
@@ -175,7 +173,7 @@
                 const light = new THREE.DirectionalLight(0xffffff, 0.5);
                 light.position.set(1, 1, 1);
                 scene.add(light);
-
+                
                 scenes.push(scene);
 
             }
@@ -225,14 +223,14 @@
             window.addEventListener( 'keydown', function ( event ) {
                 switch ( event.keyCode ) {
                     case 16:
-                        scenes[0].userData.trans.setTranslationSnap( 1 );
+                        scenes[0].userData.trans.setRotationSnap( THREE.MathUtils.degToRad( 15 ) );
                         break;
                 }
             });
             window.addEventListener( 'keyup', function ( event ) {
                 switch ( event.keyCode ) {
                     case 16:
-                        scenes[0].userData.trans.setTranslationSnap( null );
+                        scenes[0].userData.trans.setRotationSnap( null );
                         break;
                 }
             });
@@ -325,7 +323,7 @@
                         side: THREE.DoubleSide
                     });
                     let mat = m.elements;
-                    const message = "Translate Matrix\n" 
+                    const message = "Rotation Matrix\n" 
                     + mat[0].toFixed(3) + "   " + mat[1].toFixed(3) + "   " + mat[2].toFixed(3) + "   " + mat[3].toFixed(3) + "\n"
                     + mat[4].toFixed(3) + "   " + mat[5].toFixed(3) + "   " + mat[6].toFixed(3) + "   " + mat[7].toFixed(3) + "\n"
                     + mat[8].toFixed(3) + "   " + mat[9].toFixed(3) + "   " + mat[10].toFixed(3) + "   " + mat[11].toFixed(3) + "\n"
