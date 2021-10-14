@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<body>
+
+    <div id="container"></div>
+    <script type="module">
+        import * as THREE from './three/three.module.js';
+
+        import { OrbitControls } from './jsm/controls/OrbitControls.js';
+
+        let scene, renderer;
+        let windowWidth, windowHeight;
+
+        const leftView = {
+            left: 0,
+            bottom: 0,
+            width: 0.5,
+            height: 1.0,
+            background: new THREE.Color(0.5, 0.5, 0.7),
+            eye: [0, 0, 1000],
+            up: [0, 1, 0],
+            fov: 45
+        };
+        const rightView = {
+            left: 0.5,
+            bottom: 0,
+            width: 0.5,
+            height: 1.0,
+            background: new THREE.Color(0.7, 0.5, 0.5),
+            eye: [0, 0, 1000],
+            up: [0, 1, 0],
+            fov: 45
+        };
+        const views = [leftView, rightView];
+        init();
+        animate();
+
+        function init() {
+            const container = document.getElementById('container');
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+
+            //left view
+            const leftCamera = new THREE.PerspectiveCamera(leftView.fov, window.innerWidth / window.innerHeight, 1, 10000);
+            leftCamera.position.fromArray(leftView.eye);
+            leftCamera.up.fromArray(leftView.up);
+            leftView.camera = leftCamera;
+
+            //right
+            const rightCamera = new THREE.OrthographicCamera(window.innerWidth / -4, window.innerWidth / 4, window.innerHeight / 2, window.innerHeight / -2, 1, 10000);
+            rightCamera.position.fromArray(rightView.eye);
+            rightCamera.up.fromArray(rightView.up);
+            rightView.camera = rightCamera;
+
+            scene = new THREE.Scene();
+
+            const light = new THREE.DirectionalLight(0xffffff);
+            light.position.set(100, 100, 100);
+            scene.add(light);
+
+            const map = new THREE.TextureLoader().load('textures/uv_grid_opengl.jpg');
+            map.wrapS = map.wrapT = THREE.RepeatWrapping;
+            map.anisotropy = 16;
+            const material = new THREE.MeshPhongMaterial({ map: map, side: THREE.DoubleSide });
+
+
+            let mesh = new THREE.Mesh(new THREE.BoxGeometry(100, 100, 100, 4, 4, 4), material);
+            scene.add(mesh);
+
+
+            mesh = new THREE.Mesh(new THREE.BoxGeometry(100, 100, 100, 4, 4, 4), material);
+            mesh.position.x = -150;
+            scene.add(mesh);
+
+            mesh = new THREE.Mesh(new THREE.BoxGeometry(100, 100, 100, 4, 4, 4), material);
+            mesh.position.x = 150;
+            scene.add(mesh);
+
+            mesh = new THREE.Mesh(new THREE.BoxGeometry(100, 100, 100, 4, 4, 4), material);
+            mesh.position.y = -150;
+            scene.add(mesh);
+
+            mesh = new THREE.Mesh(new THREE.BoxGeometry(100, 100, 100, 4, 4, 4), material);
+            mesh.position.y = 150;
+            scene.add(mesh);
+
+            // 场景控制器
+            const leftControl = new OrbitControls(leftView.camera, renderer.domElement);
+            leftControl.addEventListener('change', render);
+
+            const rightControl = new OrbitControls(rightView.camera, renderer.domElement);
+            rightControl.addEventListener('change', render);
+
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            container.appendChild(renderer.domElement);
+        }
+
+        function updateSize() {
+
+            if (windowWidth != window.innerWidth || windowHeight != window.innerHeight) {
+
+                windowWidth = window.innerWidth;
+                windowHeight = window.innerHeight;
+
+                renderer.setSize(windowWidth, windowHeight);
+
+            }
+
+        }
+        function animate() {
+
+            render();
+
+            requestAnimationFrame(animate);
+
+        }
+
+        function render() {
+            updateSize();
+            {
+
+                const view = leftView;
+                const camera = view.camera;
+
+                const left = Math.floor(windowWidth * view.left);
+                const bottom = Math.floor(windowHeight * view.bottom);
+                const width = Math.floor(windowWidth * view.width);
+                const height = Math.floor(windowHeight * view.height);
+
+                renderer.setViewport(left, bottom, width, height);
+                renderer.setScissor(left, bottom, width, height);
+                renderer.setScissorTest(true);
+                renderer.setClearColor(view.background);
+
+                camera.aspect = width / height;
+                camera.updateProjectionMatrix();
+
+                renderer.render(scene, camera);
+
+            }
+            {
+
+                const view = rightView;
+                const camera = view.camera;
+
+                const left = Math.floor(windowWidth * view.left);
+                const bottom = Math.floor(windowHeight * view.bottom);
+                const width = Math.floor(windowWidth * view.width);
+                const height = Math.floor(windowHeight * view.height);
+
+                renderer.setViewport(left, bottom, width, height);
+                renderer.setScissor(left, bottom, width, height);
+                renderer.setScissorTest(true);
+                renderer.setClearColor(view.background);
+
+                camera.aspect = width / height;
+                camera.updateProjectionMatrix();
+                camera.left = camera.bottom * camera.aspect;
+                camera.right = camera.top * camera.aspect;
+                camera.updateProjectionMatrix();
+
+                renderer.render(scene, camera);
+
+            }
+        }
+    </script>
+
+</body>
+
+</html>
