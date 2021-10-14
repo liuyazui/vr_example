@@ -8,6 +8,7 @@
 		"Transform_Translate",
 		"Transform_Rotate",
 		"Transform_Scale",
-		"Transform_Project"
+		"Transform_Project",
+		"Lighting"
 	]
 }
