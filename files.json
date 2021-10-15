@@ -10,6 +10,7 @@
 		"Transform_Scale",
 		"Transform_Project",
 		"Lighting",
-		"Phong"
+		"Phong",
+		"Mipmap"
 	]
 }
