@@ -13,6 +13,7 @@
 		"Phong",
 		"Mipmap",
 		"Lod",
-		"Snow"
+		"Snow",
+		"Rain"
 	]
 }
