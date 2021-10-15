@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>自适应LOD</title>
+    <link type="text/css" rel="stylesheet" href="files/main.css">
+</head>
+
+<body>
+
+    <div id="info">自适应LOD</div>
+    <script type="module">
+
+        import * as THREE from './three/three.module.js';
+        import { OrbitControls } from './jsm/controls/OrbitControls.js';
+        import { FlyControls } from './jsm/controls/FlyControls.js';
+        import { VTKLoader } from './jsm/loaders/VTKLoader.js';
+        import { PLYLoader } from './jsm/loaders/PLYLoader.js';
+        let container;
+
+        let camera, scene, renderer, controls;
+        const clock = new THREE.Clock();
+
+        init();
+        animate();
+
+        function init() {
+
+            container = document.createElement('div');
+            document.body.appendChild(container);
+
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 15000);
+            camera.position.set(0, 1000, 1600);
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0.7, 0.8, 0.9);
+
+            //地面网格
+            const helper = new THREE.GridHelper(20000, 100);//添加地面网格
+            helper.position.y = - 1;
+            helper.material.opacity = 0.25;
+            helper.material.transparent = true;
+            scene.add(helper);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff);
+            dirLight.position.set(1, 1, 1).normalize();
+            scene.add(dirLight);
+
+            const geometry = [
+                [new THREE.SphereGeometry(100, 64,64), 300],
+                [new THREE.SphereGeometry(100, 32,32), 500],
+                [new THREE.SphereGeometry(100, 8,8), 1000],
+                [new THREE.SphereGeometry(100, 4,4), 2000]
+            ];
+            //const material = new THREE.MeshLambertMaterial({ color: 0xffffff, wireframe: true });
+            const material = new THREE.MeshPhongMaterial({
+                color: 0xff0000,
+                polygonOffset: true,
+                polygonOffsetFactor: 1, // positive value pushes polygon further away
+                polygonOffsetUnits: 1
+            });
+
+            {
+                const lod = new THREE.LOD();
+
+                for (let i = 0; i < geometry.length; i++) {
+
+                    const mesh = new THREE.Mesh(geometry[i][0], material);
+                    mesh.scale.multiplyScalar(1.5);
+                    mesh.updateMatrix();
+                    mesh.matrixAutoUpdate = false;
+
+                    var geo = new THREE.EdgesGeometry(mesh.geometry);
+                    var mat = new THREE.LineBasicMaterial({ color: 0xffffff });
+                    var wireframe = new THREE.LineSegments(geo, mat);
+                    mesh.add(wireframe);
+
+                    lod.addLevel(mesh, geometry[i][1]);
+                }
+
+                lod.position.set(0, 0, 0);
+                lod.updateMatrix();
+                lod.matrixAutoUpdate = false;
+                scene.add(lod);
+            }
+
+            {
+                const lod = new THREE.LOD();
+
+                for (let i = 0; i < geometry.length; i++) {
+
+                    const mesh = new THREE.Mesh(geometry[i][0], material);
+                    mesh.scale.multiplyScalar(1.5);
+                    mesh.updateMatrix();
+                    mesh.matrixAutoUpdate = false;
+
+                    var geo = new THREE.EdgesGeometry(mesh.geometry);
+                    var mat = new THREE.LineBasicMaterial({ color: 0xffffff });
+                    var wireframe = new THREE.LineSegments(geo, mat);
+                    mesh.add(wireframe);
+
+                    lod.addLevel(mesh, geometry[i][1]);
+                }
+
+                lod.position.set(0, 0, -900);
+                lod.updateMatrix();
+                lod.matrixAutoUpdate = false;
+                scene.add(lod);
+            }
+
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            container.appendChild(renderer.domElement);
+
+
+            const controls = new OrbitControls(camera, renderer.domElement);
+            controls.damping = 0.2;
+            controls.addEventListener('change', render);
+
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        function onWindowResize() {
+
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+
+            renderer.setSize(window.innerWidth, window.innerHeight);
+
+        }
+
+        function animate() {
+
+            requestAnimationFrame(animate);
+            render();
+
+        }
+
+        function render() {
+
+
+            //controls.update( clock.getDelta() );
+            renderer.render(scene, camera);
+
+        }
+
+    </script>
+
+</body>
+
+</html>
