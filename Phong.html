@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phong着色</title>
+</head>
+
+<body>
+    <div id="container"></div>
+    <script type="module">
+
+        import * as THREE from './three/three.module.js';
+			import { GUI } from './jsm/libs/dat.gui.module.js';
+
+        import { OrbitControls } from './jsm/controls/OrbitControls.js';
+        let container;
+
+        let camera, scene, renderer;
+        let particleLight;
+			let gui;
+            let diffuseColor,material,mesh;
+            const API = {
+				diffuse: 0xa4a400, // sRGB
+				specular: 125
+			};
+
+        const loader = new THREE.FontLoader();
+        loader.load('fonts/gentilis_regular.typeface.json', function (font) {
+
+            init(font);
+            
+            animate();
+
+        });
+
+        function init(font) {
+
+            container = document.createElement('div');
+            document.body.appendChild(container);
+
+            camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 1, 2500);
+            camera.position.set(0.0, 400, 400 * 3.5);
+
+            scene = new THREE.Scene();
+
+            diffuseColor = new THREE.Color().setRGB(1.0, 1.0, 0.0);
+
+            {
+                const geometry = new THREE.SphereGeometry(100,32,32);
+                const geometry2 = new THREE.TorusKnotGeometry( 60, 10, 50, 20 );
+                const geometry3 = new THREE.TorusGeometry( 80, 20, 20, 20 );
+                material = new THREE.MeshPhongMaterial({
+                    color: API.diffuse,//diffuse
+                    specular: new THREE.Color().setRGB(0.2,0.2,0.2),//specular
+                    reflectivity: 1,//reflect
+                    shininess: API.specular,//shiness
+                });
+                mesh = new THREE.Mesh(geometry, material);
+                const mesh2 = new THREE.Mesh(geometry2, material);
+                const mesh3 = new THREE.Mesh(geometry3, material);
+                scene.add(mesh);
+                scene.add(mesh2);
+                scene.add(mesh3);
+
+                mesh2.position.set(-200,0,0);
+                mesh3.position.set(200,0,0);
+            }
+
+            particleLight = new THREE.Mesh(new THREE.SphereGeometry(4, 8, 8), new THREE.MeshBasicMaterial({ color: 0xff0000 }));
+            particleLight.position.set(0,100,100);
+            scene.add(particleLight);
+            
+            // Lights
+            scene.add(new THREE.AmbientLight(0x222222));
+
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+            directionalLight.position.set(200, 200, 200);
+            scene.add(directionalLight);
+            const directionalhelper = new THREE.DirectionalLightHelper( directionalLight, 50 );
+            scene.add( directionalhelper );
+
+            const pointLight = new THREE.PointLight(0xff0000, 2, 800);
+            particleLight.add(pointLight);
+
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            container.appendChild(renderer.domElement);
+            renderer.outputEncoding = THREE.sRGBEncoding;
+
+
+            const controls = new OrbitControls(camera, renderer.domElement);
+            controls.addEventListener('change', render);
+
+            //gui
+            gui = new GUI();
+            gui.addColor(API, 'diffuse')
+                .listen().onChange(function () {
+                    mesh.material.color.setHex(API.diffuse).convertSRGBToLinear();
+                    render();
+                });
+                gui.add( API, 'specular', 0, 512 )
+					.onChange( function () {
+                        mesh.material.shininess = API.specular;
+						render();
+
+					} );
+
+            window.addEventListener('resize', onWindowResize);
+        }
+        function onWindowResize() {
+
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+
+            renderer.setSize(window.innerWidth, window.innerHeight);
+
+        }
+
+        function animate() {
+
+            requestAnimationFrame(animate);
+
+            render();
+
+        }
+
+        function render() {
+
+            const timer = Date.now() * 0.00025;
+
+            //camera.position.x = Math.cos( timer ) * 800;
+            //camera.position.z = Math.sin( timer ) * 800;
+
+            camera.lookAt(scene.position);
+
+            particleLight.position.x = Math.sin(timer * 7) * 300;
+            particleLight.position.y = Math.cos(timer * 5) * 300;
+            particleLight.position.z = Math.cos(timer * 3) * 300;
+
+            renderer.render(scene, camera);
+
+        }
+
+
+    </script>
+</body>
+
+</html>
