@@ -9,6 +9,7 @@
 		"Transform_Rotate",
 		"Transform_Scale",
 		"Transform_Project",
-		"Lighting"
+		"Lighting",
+		"Phong"
 	]
 }
