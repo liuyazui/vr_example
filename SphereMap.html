@@ -22,6 +22,8 @@
         let textureEquirec;
         let sphereMesh, sphereMaterial;
 
+        let exrCubeRenderTarget,exrBackground;
+
 
         init();
         animate();
@@ -45,7 +47,7 @@
 
             const textureLoader = new THREE.TextureLoader();
 
-            textureEquirec = textureLoader.load('textures/2294472375_24a3b8ef46_o.jpg');
+            textureEquirec = textureLoader.load('textures/boiler_room_4k.jpg');
             textureEquirec.mapping = THREE.EquirectangularReflectionMapping;
             textureEquirec.encoding = THREE.sRGBEncoding;
 
