@@ -12,6 +12,9 @@
 		"Lighting",
 		"Phong",
 		"Mipmap",
-		"Lod"
+		"Lod",
+		"Snow",
+		"Rain",
+		"SphereMap"
 	]
 }
