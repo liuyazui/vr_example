@@ -11,6 +11,7 @@
 		"Transform_Project",
 		"Lighting",
 		"Phong",
-		"Mipmap"
+		"Mipmap",
+		"Lod"
 	]
 }

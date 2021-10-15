@@ -39,6 +39,11 @@
             scene3 = new THREE.Scene();
             scene3.background = new THREE.Color(0xf0f0f0);
 
+            const hslight = new THREE.HemisphereLight( 0xffffff, 0x080820, 0.5 );
+            scene.add( hslight );
+            scene2.add( hslight.clone() );
+            scene3.add( hslight.clone() );
+
             //middle object
             const loader = new VTKLoader();
             loader.load("models/vtk/bunny.vtk", function (geometry) {
