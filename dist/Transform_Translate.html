@@ -57,8 +57,8 @@
         }
 
         .list-item-m>div:nth-child(1) {
-            width: 100px;
-            height: 100px;
+            width: 250px;
+            height: 250px;
         }
 
         #info {
@@ -213,7 +213,13 @@
 
                 // make a list item
                 const element = document.createElement('div');
-                element.className = 'list-item';
+                if ((navigator.userAgent.match(/(iPhone|iPod|Android|ios|iOS|iPad|Backerry|WebOS|Symbian|Windows Phone|Phone)/i))) {
+                    console.log("手机访问.");
+                    element.className = 'list-item-m';
+                }else{
+                    console.log("电脑访问.");
+                    element.className = 'list-item';
+                }
 
                 const sceneElement = document.createElement('div');
                 element.appendChild(sceneElement);
