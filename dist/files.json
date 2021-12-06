@@ -7,12 +7,12 @@
 		"Transform_Rotate",
 		"Transform_Scale",
 		"Transform_Project",
-		"Lighting",
-		"Phong",
-		"Mipmap",
-		"Lod",
-		"Snow",
-		"Rain",
-		"SphereMap"
+		"Rendering_Lighting",
+		"Rendering_Phong",
+		"Rendering_Mipmap",
+		"Rendering_Lod",
+		"Rendering_Snow",
+		"Rendering_Rain",
+		"Rendering_SphereMap"
 	]
 }
