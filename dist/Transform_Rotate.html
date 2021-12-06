@@ -48,13 +48,18 @@
             height: 600px;
         }
 
-        .list-item>div:nth-child(2) {
-            color: #888;
-            font-family: sans-serif;
-            font-size: large;
-            width: 200px;
-            margin-top: 0.5em;
+        .list-item-m {
+            display: inline-block;
+            margin: 1em;
+            padding: 1em;
+            box-shadow: 1px 2px 4px 0px rgba(0, 0, 0, 0.25);
         }
+
+        .list-item-m>div:nth-child(1) {
+            width: 250px;
+            height: 250px;
+        }
+
         #info {
             position: absolute;
             top: 0px;
@@ -128,7 +133,11 @@
 
                 // make a list item
                 const element = document.createElement('div');
-                element.className = 'list-item';
+                if ((navigator.userAgent.match(/(iPhone|iPod|Android|ios|iOS|iPad|Backerry|WebOS|Symbian|Windows Phone|Phone)/i))) {
+                    element.className = 'list-item-m';
+                }else{
+                    element.className = 'list-item';
+                }
 
                 const sceneElement = document.createElement('div');
                 element.appendChild(sceneElement);
@@ -200,7 +209,11 @@
 
                 // make a list item
                 const element = document.createElement('div');
-                element.className = 'list-item';
+                if ((navigator.userAgent.match(/(iPhone|iPod|Android|ios|iOS|iPad|Backerry|WebOS|Symbian|Windows Phone|Phone)/i))) {
+                    element.className = 'list-item-m';
+                }else{
+                    element.className = 'list-item';
+                }
 
                 const sceneElement = document.createElement('div');
                 element.appendChild(sceneElement);
