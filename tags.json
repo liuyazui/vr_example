@@ -1,3 +1,15 @@
 {
-	"misc_controls_transform": [ "scale", "rotate", "translate" ]
+		"Modeling_Bezier":["modeling"],
+		"Modeling_NURBS":["modeling"],
+		"Transform_Translate":["transform"],
+		"Transform_Rotate":["transform"],
+		"Transform_Scale":["transform"],
+		"Transform_Project":["transform"],
+		"Rendering_Lighting":["redering"],
+		"Rendering_Phong":["redering"],
+		"Rendering_Mipmap":["redering"],
+		"Rendering_Lod":["redering"],
+		"Rendering_Snow":["redering"],
+		"Rendering_Rain":["redering"],
+		"Rendering_SphereMap":["redering"]
 }
